@@ -7,7 +7,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'super-secret-key-nebula' # Секретный ключ для сессий
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 # Лимит 100МБ для видео
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 # Лимит 100МБ для видео PS: позже увеличу
 UPLOAD_FOLDER = 'static/avatars'
 CHAT_IMAGES_FOLDER = 'static/chat_images'
 CHAT_VIDEOS_FOLDER = 'static/chat_videos'
