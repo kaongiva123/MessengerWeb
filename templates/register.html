@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="register">Регистрация - Nebula Messenger</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container d-flex justify-content-center align-items-center" style="height: 100vh;">
+        <div class="glass-container col-md-5">
+            <div class="d-flex justify-content-end mb-2">
+                <select id="lang-select" class="lang-dropdown border-0 px-2 py-1" style="font-size: 0.8rem; cursor: pointer;">
+                    <option value="ru">RU</option>
+                    <option value="en">EN</option>
+                    <option value="sr">SR</option>
+                </select>
+            </div>
+            <h2 class="text-center mb-4" data-i18n="register">Регистрация</h2>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{% if category == 'error' %}danger{% else %}success{% endif %} bg-transparent text-white border-white">
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <div class="form-group">
+                    <label data-i18n="username">Имя пользователя</label>
+                    <input type="text" name="username" class="form-control glass-input" required placeholder="Ivan">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="password">Пароль</label>
+                    <input type="password" name="password" class="form-control glass-input" required placeholder="******">
+                </div>
+                <button type="submit" class="btn btn-glass btn-block mt-4" data-i18n="register">Зарегистрироваться</button>
+                <div class="text-center mt-3">
+                    <span data-i18n="have_account">Уже есть аккаунт?</span> <a href="{{ url_for('login') }}" class="text-white font-weight-bold" data-i18n="login_link">Войти</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='i18n.js') }}"></script>
+</body>
+</html>

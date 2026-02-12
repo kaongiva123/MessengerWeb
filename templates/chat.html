@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат с {{ recipient.username }} - Nebula Messenger</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body data-theme="{{ current_user.theme }}">
+    <div class="container py-4">
+        <div class="d-flex align-items-center mb-4">
+            <a href="{{ url_for('index') }}" class="btn btn-glass mr-3"><i class="fas fa-arrow-left"></i></a>
+            <a href="{{ url_for('profile', user_id=recipient.id) }}" class="d-flex align-items-center text-decoration-none mr-auto" style="color: inherit;">
+                <img src="{% if recipient.avatar %}{{ url_for('static', filename='avatars/' + recipient.avatar) }}{% else %}https://ui-avatars.com/api/?name={{ recipient.username }}{% endif %}" class="avatar-img">
+                <h4 class="mb-0">{{ recipient.username }}</h4>
+            </a>
+            <select id="lang-select" class="lang-dropdown mr-2 border-0 px-2 py-1" style="font-size: 0.8rem; cursor: pointer;">
+                <option value="ru">RU</option>
+                <option value="en">EN</option>
+                <option value="sr">SR</option>
+            </select>
+            <button id="theme-cycle" class="btn btn-glass ml-2">
+                <i class="fas fa-magic"></i>
+            </button>
+        </div>
+
+        <div class="glass-container p-0 overflow-hidden">
+            <div id="chat-box" class="chat-box">
+                <!-- Сообщения загрузятся здесь -->
+            </div>
+            
+            <div id="typing-container" class="px-3" style="height: 25px;">
+                <div id="typing-indicator" style="display: none;">
+                    {{ recipient.username }} <span data-i18n="typing">печатает</span>
+                    <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+                </div>
+            </div>
+
+            <!-- Контейнер для предпросмотра фото -->
+            <div id="preview-container" class="preview-container">
+                <div class="image-preview-wrapper">
+                    <img id="image-preview" src="#" class="image-preview" alt="Preview">
+                    <button type="button" id="remove-preview" class="remove-preview">&times;</button>
+                </div>
+            </div>
+
+            <div class="p-3" style="border-top: 1px solid var(--glass-border)">
+                <form id="send-form" class="d-flex align-items-center">
+                    <label for="file-input" class="btn btn-glass mr-2 mb-0">
+                        <i class="fas fa-paperclip"></i>
+                    </label>
+                    <input type="file" id="file-input" style="display: none;" accept="image/*,video/*">
+                    <input type="text" id="message-text" class="form-control glass-input flex-grow-1 mr-2" data-i18n="send_placeholder" placeholder="Ваше сообщение или Ctrl+V..." required autocomplete="off">
+                    <button type="submit" id="send-btn" class="btn btn-glass"><i class="fas fa-paper-plane"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Контекстное меню для сообщений -->
+    <div id="message-context-menu" class="glass-container p-2" style="display: none; position: absolute; z-index: 1000; min-width: 180px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <button id="delete-me-btn" class="btn btn-glass btn-sm btn-block text-left mb-2">
+            <i class="fas fa-user-minus mr-2"></i> <span data-i18n="delete_me">Удалить у себя</span>
+        </button>
+        <button id="delete-both-btn" class="btn btn-danger btn-sm btn-block text-left" style="background: rgba(220, 53, 69, 0.2); border: 1px solid #dc3545;">
+            <i class="fas fa-trash-alt mr-2"></i> <span data-i18n="delete_both">Удалить у всех</span>
+        </button>
+    </div>
+
+    <script src="{{ url_for('static', filename='i18n.js') }}"></script>
+
+    <!-- Модальное окно для медиа -->
+    <div id="media-modal">
+        <span class="close-modal">&times;</span>
+        <div id="modal-container" style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+            <!-- Контент (img или video) вставится скриптом -->
+        </div>
+    </div>
+
+    <script>
+        const recipientId = {{ recipient.id }};
+        const currentUserId = {{ current_user.id }};
+        const chatBox = document.getElementById('chat-box');
+        const sendForm = document.getElementById('send-form');
+        const messageInput = document.getElementById('message-text');
+        const fileInput = document.getElementById('file-input');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const previewContainer = document.getElementById('preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const removePreview = document.getElementById('remove-preview');
+        
+        const modal = document.getElementById('media-modal');
+        const modalContainer = document.getElementById('modal-container');
+        const closeModal = document.querySelector('.close-modal');
+
+        let stagedFile = null;
+
+        function openModal(src, type) {
+            modalContainer.innerHTML = '';
+            if (type === 'video') {
+                const video = document.createElement('video');
+                video.src = src;
+                video.controls = true;
+                video.autoplay = true;
+                video.id = 'modal-content';
+                modalContainer.appendChild(video);
+            } else {
+                const img = document.createElement('img');
+                img.src = src;
+                img.id = 'modal-content';
+                modalContainer.appendChild(img);
+            }
+            modal.style.display = 'flex';
+        }
+
+        closeModal.onclick = () => {
+            modal.style.display = 'none';
+            modalContainer.innerHTML = '';
+        }
+
+        window.onclick = (event) => {
+            if (event.target == modal) closeModal.onclick();
+        }
+
+        function scrollChat() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function loadMessages() {
+            fetch(`/api/messages/${recipientId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const isAtBottom = chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 100;
+                    
+                    chatBox.innerHTML = '';
+                    data.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.className = `message ${msg.sender_id === currentUserId ? 'sent' : 'received'}`;
+                        div.setAttribute('data-msg-id', msg.id);
+                        div.setAttribute('data-sender-id', msg.sender_id);
+                        
+                        // Обработка контекстного меню
+                        div.oncontextmenu = (e) => {
+                            e.preventDefault();
+                            showContextMenu(e, msg.id, msg.sender_id);
+                        };
+
+                        // Текст сообщения (если есть)
+                        if (msg.text) {
+                            const textDiv = document.createElement('div');
+                            textDiv.innerText = msg.text;
+                            textDiv.style.marginBottom = msg.msg_type !== 'text' ? '8px' : '0';
+                            div.appendChild(textDiv);
+                        }
+
+                        // Медиа контент
+                        if (msg.msg_type === 'image') {
+                            const img = document.createElement('img');
+                            img.src = `/static/chat_images/${msg.file_path}`;
+                            img.className = 'chat-image';
+                            img.onclick = () => openModal(img.src, 'image');
+                            div.appendChild(img);
+                        } else if (msg.msg_type === 'video') {
+                            const container = document.createElement('div');
+                            container.style.position = 'relative';
+                            
+                            const vid = document.createElement('video');
+                            vid.src = `/static/chat_videos/${msg.file_path}`;
+                            vid.className = 'chat-video';
+                            vid.style.maxHeight = '200px';
+                            // Не проигрываем сразу, кликаем для открытия в модалке
+                            container.onclick = (e) => {
+                                e.preventDefault();
+                                openModal(vid.src, 'video');
+                            };
+                            
+                            const playBtn = document.createElement('div');
+                            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                            playBtn.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:white; font-size:2rem; text-shadow:0 0 10px rgba(0,0,0,0.5); pointer-events:none;';
+                            
+                            container.appendChild(vid);
+                            container.appendChild(playBtn);
+                            div.appendChild(container);
+                        }
+                        
+                        const time = document.createElement('div');
+                        time.className = 'message-time';
+                        const date = new Date(msg.timestamp);
+                        time.innerText = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        div.appendChild(time);
+                        
+                        chatBox.appendChild(div);
+                    });
+                    
+                    if (isAtBottom) scrollChat();
+                });
+        }
+
+        // Обработка выбора файла (предпросмотр)
+        function handleFileSelect(file) {
+            if (!file) return;
+            stagedFile = file;
+            
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    previewContainer.style.display = 'block';
+                    messageInput.required = false;
+                };
+                reader.readAsDataURL(file);
+            } else if (file.type.startsWith('video/')) {
+                // Для видео просто показываем иконку или текст
+                imagePreview.src = 'https://cdn-icons-png.flaticon.com/512/1179/1179069.png'; // Иконка видео
+                previewContainer.style.display = 'block';
+                messageInput.required = false;
+            }
+        }
+
+        fileInput.onchange = () => {
+            handleFileSelect(fileInput.files[0]);
+        };
+
+        // Вставка из буфера обмена (Ctrl+V)
+        messageInput.onpaste = (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file') {
+                    const blob = item.getAsFile();
+                    handleFileSelect(blob);
+                }
+            }
+        };
+
+        // Удаление предпросмотра
+        removePreview.onclick = () => {
+            stagedFile = null;
+            previewContainer.style.display = 'none';
+            imagePreview.src = '#';
+            messageInput.required = true;
+            fileInput.value = '';
+        };
+
+        sendForm.onsubmit = (e) => {
+            e.preventDefault();
+            const text = messageInput.value;
+            
+            if (!text && !stagedFile) return;
+
+            const formData = new FormData();
+            formData.append('receiver_id', recipientId);
+            formData.append('text', text);
+            if (stagedFile) {
+                formData.append('file', stagedFile);
+            }
+
+            fetch('/api/send', {
+                method: 'POST',
+                body: formData
+            }).then(() => {
+                messageInput.value = '';
+                removePreview.onclick(); // Сброс предпросмотра
+                loadMessages();
+                setTimeout(scrollChat, 100);
+            });
+        };
+
+        function checkTyping() {
+            fetch(`/api/typing_status/${recipientId}`)
+                .then(res => res.json())
+                .then(data => {
+                    typingIndicator.style.display = data.is_typing ? 'block' : 'none';
+                });
+        }
+
+        messageInput.addEventListener('input', () => {
+            fetch('/api/typing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipient_id: recipientId })
+            });
+        });
+
+        // Контекстное меню для сообщений
+        const messageCtx = document.getElementById('message-context-menu');
+        const deleteMeBtn = document.getElementById('delete-me-btn');
+        const deleteBothBtn = document.getElementById('delete-both-btn');
+        let currentMsgId = null;
+
+        function showContextMenu(e, msgId, senderId) {
+            currentMsgId = msgId;
+            // "Удалить у всех" показываем только если мы отправитель
+            deleteBothBtn.style.display = (senderId === currentUserId) ? 'block' : 'none';
+            
+            messageCtx.style.display = 'block';
+            messageCtx.style.left = `${e.pageX}px`;
+            messageCtx.style.top = `${e.pageY}px`;
+        }
+
+        document.addEventListener('click', () => {
+            messageCtx.style.display = 'none';
+        });
+
+        function deleteMessage(mode) {
+            if (!currentMsgId) return;
+            fetch('/api/delete_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message_id: currentMsgId, mode: mode })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    loadMessages();
+                }
+            });
+        }
+
+        deleteMeBtn.onclick = () => deleteMessage('me');
+        deleteBothBtn.onclick = () => deleteMessage('both');
+
+        setInterval(loadMessages, 3000);
+        setInterval(checkTyping, 2000);
+        loadMessages();
+        setTimeout(scrollChat, 500);
+
+        // Переключатель тем
+        const themeCycleBtn = document.getElementById('theme-cycle');
+        const themes = ['dark', 'midnight', 'light'];
+        themeCycleBtn.onclick = () => {
+            let currentTheme = document.body.getAttribute('data-theme') || 'dark';
+            let nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+            let nextTheme = themes[nextIndex];
+            document.body.setAttribute('data-theme', nextTheme);
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: nextTheme })
+            });
+        };
+    </script>
+</body>
+</html>

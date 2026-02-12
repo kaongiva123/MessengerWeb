@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль {{ user.username }} - Nebula Messenger</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body data-theme="{{ current_user.theme }}">
+    <div class="container py-4">
+        <div class="d-flex align-items-center mb-4">
+            <button onclick="history.back()" class="btn btn-glass mr-3"><i class="fas fa-arrow-left"></i> <span data-i18n="back">Назад</span></button>
+            <h2 class="mb-0 flex-grow-1" data-i18n="profile_title">Профиль пользователя</h2>
+            <select id="lang-select" class="lang-dropdown mr-2 border-0 px-2 py-1" style="font-size: 0.8rem; cursor: pointer;">
+                <option value="ru">RU</option>
+                <option value="en">EN</option>
+                <option value="sr">SR</option>
+            </select>
+            <button id="theme-cycle" class="btn btn-glass ml-2">
+                <i class="fas fa-magic"></i>
+            </button>
+        </div>
+
+        <div class="glass-container col-md-8 mx-auto text-center py-5">
+            <div class="mb-4">
+                <div class="position-relative d-inline-block">
+                    <img src="{% if user.avatar %}{{ url_for('static', filename='avatars/' + user.avatar) }}{% else %}https://ui-avatars.com/api/?name={{ user.username }}&size=200{% endif %}" 
+                         class="avatar-img shadow-lg" 
+                         style="width: 180px; height: 180px; border-width: 4px; border-color: var(--accent-color); margin-right: 0; cursor: pointer;"
+                         onclick="openModal(this.src, 'image')">
+                </div>
+            </div>
+            
+            <h1 class="font-weight-bold mb-2">{{ user.username }}</h1>
+            
+            <div class="mb-4 px-4">
+                {% if user.bio %}
+                    <p class="text-white-50" style="font-size: 1.1rem; line-height: 1.6; white-space: pre-wrap;">{{ user.bio }}</p>
+                {% else %}
+                    <p class="text-white-50 font-italic" data-i18n="profile_bio_empty">Описание профиля отсутствует</p>
+                {% endif %}
+            </div>
+
+            {% if user.profile_video %}
+            <div class="mb-4 profile-vid-container">
+                <video class="profile-vid" controls loop muted playsinline>
+                    <source src="{{ url_for('static', filename='profile_videos/' + user.profile_video) }}" type="video/mp4">
+                    Ваш браузер не поддерживает видео.
+                </video>
+            </div>
+            {% endif %}
+
+            <div class="d-flex justify-content-center">
+                <a href="{{ url_for('chat', user_id=user.id) }}" class="btn btn-glass px-4 py-2 mx-2">
+                    <i class="fas fa-comment-alt mr-2"></i> <span data-i18n="write_message">Написать сообщение</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='i18n.js') }}"></script>
+
+    <!-- Модальное окно для медиа -->
+    <div id="media-modal">
+        <span class="close-modal">&times;</span>
+        <div id="modal-container" style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;"></div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('media-modal');
+        const modalContainer = document.getElementById('modal-container');
+        const closeModal = document.querySelector('.close-modal');
+
+        function openModal(src, type) {
+            modalContainer.innerHTML = '';
+            if (type === 'video') {
+                const video = document.createElement('video');
+                video.src = src;
+                video.controls = true;
+                video.autoplay = true;
+                video.id = 'modal-content';
+                modalContainer.appendChild(video);
+            } else {
+                const img = document.createElement('img');
+                img.src = src;
+                img.id = 'modal-content';
+                modalContainer.appendChild(img);
+            }
+            modal.style.display = 'flex';
+        }
+
+        closeModal.onclick = () => {
+            modal.style.display = 'none';
+            modalContainer.innerHTML = '';
+        }
+
+        window.onclick = (event) => {
+            if (event.target == modal) closeModal.onclick();
+        }
+
+        // Переключатель тем
+        const themeCycleBtn = document.getElementById('theme-cycle');
+        const themes = ['dark', 'midnight', 'light'];
+        themeCycleBtn.onclick = () => {
+            let currentTheme = document.body.getAttribute('data-theme') || 'dark';
+            let nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+            let nextTheme = themes[nextIndex];
+            document.body.setAttribute('data-theme', nextTheme);
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: nextTheme })
+            });
+        };
+    </script>
+</body>
+</html>

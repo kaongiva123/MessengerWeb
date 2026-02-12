@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="nav_chats">Сообщения - Nebula Messenger</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body data-theme="{{ current_user.theme }}">
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a href="{{ url_for('profile', user_id=current_user.id) }}" class="d-flex align-items-center text-decoration-none" style="color: inherit;">
+                <img src="{% if current_user.avatar %}{{ url_for('static', filename='avatars/' + current_user.avatar) }}{% else %}https://ui-avatars.com/api/?name={{ current_user.username }}{% endif %}" class="avatar-img">
+                <h4 class="mb-0">{{ current_user.username }}</h4>
+            </a>
+            <div class="d-flex align-items-center">
+                <select id="lang-select" class="lang-dropdown mr-2 border-0 px-2 py-1" style="font-size: 0.8rem; cursor: pointer;">
+                    <option value="ru">RU</option>
+                    <option value="en">EN</option>
+                    <option value="sr">SR</option>
+                </select>
+                <button id="theme-cycle" class="btn btn-glass mr-2" title="Сменить тему">
+                    <i class="fas fa-magic"></i>
+                </button>
+                <a href="{{ url_for('settings') }}" class="btn btn-glass mr-2 nav-badge">
+                    <i class="fas fa-cog"></i>
+                    {% if total_unread and total_unread > 0 %}
+                        <span class="total-unread">{{ total_unread }}</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_for('logout') }}" class="btn btn-glass"><i class="fas fa-sign-out-alt"></i></a>
+            </div>
+        </div>
+
+        <div class="glass-container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="mb-0" data-i18n="{% if is_search %}search_results{% else %}your_chats{% endif %}">{% if is_search %}Результаты поиска{% else %}Ваши чаты{% endif %}</h5>
+                <form action="{{ url_for('index') }}" method="GET" class="d-flex" style="max-width: 300px;">
+                    <input type="text" name="q" class="form-control glass-input form-control-sm mr-2" data-i18n="search_placeholder" placeholder="Найти контакт..." value="{{ search_query }}">
+                    <button type="submit" class="btn btn-glass btn-sm mr-1"><i class="fas fa-search"></i></button>
+                    {% if search_query %}
+                        <a href="{{ url_for('index') }}" class="btn btn-glass btn-sm"><i class="fas fa-times"></i></a>
+                    {% endif %}
+                </form>
+            </div>
+            
+            <div class="user-list">
+                {% if users %}
+                    {% for user in users %}
+                    <div class="glass-card d-flex align-items-center mb-3 p-0" style="animation-delay: {{ loop.index0 * 0.1 }}s; overflow: hidden;">
+                        <a href="{{ url_for('profile', user_id=user.id) }}" class="p-3">
+                            <img src="{% if user.avatar %}{{ url_for('static', filename='avatars/' + user.avatar) }}{% else %}https://ui-avatars.com/api/?name={{ user.username }}{% endif %}" 
+                                 class="avatar-img m-0 user-avatar-trigger" 
+                                 style="width: 54px; height: 54px;" 
+                                 data-user-id="{{ user.id }}">
+                        </a>
+                        <a href="{{ url_for('chat', user_id=user.id) }}" class="flex-grow-1 p-3 text-decoration-none d-flex align-items-center" style="color: inherit;">
+                            <div class="flex-grow-1 overflow-hidden">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0 font-weight-bold">{{ user.username }}</h6>
+                                    <div class="d-flex flex-column align-items-end">
+                                        {% if user.last_time %}
+                                            <small class="text-white-50 mb-1">{{ user.last_time[11:16] }}</small>
+                                        {% endif %}
+                                        {% if user.unread_count and user.unread_count > 0 %}
+                                            <span class="badge-unread bounceIn">{{ user.unread_count }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-truncate text-white-50" style="font-size: 0.85rem;">
+                                    {% if is_search %}
+                                        <span data-i18n="write_message">Нажмите, чтобы начать чат</span>
+                                    {% else %}
+                                        {% if user.last_type == 'image' %}
+                                            <i class="fas fa-camera"></i> <span data-i18n="photo">Фотография</span>
+                                        {% elif user.last_type == 'video' %}
+                                            <i class="fas fa-video"></i> <span data-i18n="video">Видео</span>
+                                        {% else %}
+                                            {{ user.last_msg or "Нет сообщений" }}
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right ml-3 text-white-50" style="font-size: 0.8rem;"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5" style="animation: fadeIn 1s ease-in;">
+                        {% if is_search %}
+                            <i class="fas fa-search mb-3" style="font-size: 3rem; opacity: 0.3;"></i>
+                            <p data-i18n="user_not_found">Пользователь не найден.</p>
+                            <a href="{{ url_for('index') }}" class="btn btn-glass btn-sm" data-i18n="back">Назад к чатам</a>
+                        {% else %}
+                            <i class="fas fa-comments mb-3" style="font-size: 3rem; opacity: 0.3;"></i>
+                            <h5 data-i18n="no_chats">У вас пока нет активных чатов</h5>
+                            <p class="text-white-50" data-i18n="no_chats_desc">Используйте поиск сверху, чтобы найти собеседника.</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Контекстное меню -->
+    <div id="context-menu" class="glass-container p-2" style="display: none; position: absolute; z-index: 1000; min-width: 150px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <button id="delete-chat-btn" class="btn btn-danger btn-sm btn-block text-left" style="background: rgba(220, 53, 69, 0.2); border: 1px solid #dc3545; border-radius: 8px;">
+            <i class="fas fa-trash-alt mr-2"></i> <span data-i18n="delete_chat">Удалить чат</span>
+        </button>
+    </div>
+
+    <script src="{{ url_for('static', filename='i18n.js') }}"></script>
+    <script>
+        const themeCycleBtn = document.getElementById('theme-cycle');
+        const themes = ['dark', 'midnight', 'light'];
+        const contextMenu = document.getElementById('context-menu');
+        const deleteChatBtn = document.getElementById('delete-chat-btn');
+        let currentTargetId = null;
+        
+        // Скрытие контекстного меню при клике в любом месте
+        document.addEventListener('click', () => {
+            contextMenu.style.display = 'none';
+        });
+
+        // Обработка правого клика на аватарках
+        document.querySelectorAll('.user-avatar-trigger').forEach(img => {
+            img.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                currentTargetId = img.getAttribute('data-user-id');
+                
+                contextMenu.style.display = 'block';
+                contextMenu.style.left = `${e.pageX}px`;
+                contextMenu.style.top = `${e.pageY}px`;
+            });
+        });
+
+        // Удаление чата
+        deleteChatBtn.onclick = () => {
+            if (!currentTargetId) return;
+            if (confirm("Вы уверены, что хотите удалить переписку?")) {
+                fetch(`/api/delete_chat/${currentTargetId}`, { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            location.reload(); // Перезагружаем для обновления списка
+                        }
+                    });
+            }
+        };
+
+        themeCycleBtn.onclick = () => {
+            let currentTheme = document.body.getAttribute('data-theme') || 'dark';
+            let nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+            let nextTheme = themes[nextIndex];
+            
+            // Мгновенная смена
+            document.body.setAttribute('data-theme', nextTheme);
+            
+            // Сохранение на сервере
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: nextTheme })
+            });
+        };
+    </script>
+</body>
+</html>

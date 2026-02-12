@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки - Nebula Messenger</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body data-theme="{{ user.theme }}">
+    <div class="container py-4">
+        <div class="d-flex align-items-center mb-4">
+            <a href="{{ url_for('index') }}" class="btn btn-glass mr-3"><i class="fas fa-arrow-left"></i> <span data-i18n="back">Назад</span></a>
+            <h2 class="mb-0 flex-grow-1" data-i18n="nav_settings">Настройки профиля</h2>
+            <select id="lang-select" class="lang-dropdown mr-2 border-0 px-2 py-1" style="font-size: 0.8rem; cursor: pointer;">
+                <option value="ru">RU</option>
+                <option value="en">EN</option>
+                <option value="sr">SR</option>
+            </select>
+            <button id="theme-cycle" class="btn btn-glass ml-2">
+                <i class="fas fa-magic"></i>
+            </button>
+        </div>
+
+        <div class="glass-container col-md-8 mx-auto">
+            <form method="POST" enctype="multipart/form-data">
+                <div class="text-center mb-4">
+                    <img src="{% if user.avatar %}{{ url_for('static', filename='avatars/' + user.avatar) }}{% else %}https://ui-avatars.com/api/?name={{ user.username }}{% endif %}" class="avatar-img" style="width: 100px; height: 100px;">
+                </div>
+                
+                <div class="form-group">
+                    <label data-i18n="username_label">Имя пользователя (Юзернейм)</label>
+                    <input type="text" name="username" class="form-control glass-input" value="{{ user.username }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="bio_label">О себе (Bio)</label>
+                    <textarea name="bio" class="form-control glass-input" rows="3" data-i18n="bio_label" placeholder="Расскажите что-нибудь о себе...">{{ user.bio or '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="theme_label">Выберите тему оформления</label>
+                    <select name="theme" class="form-control glass-input">
+                        <option value="dark" {% if user.theme == 'dark' %}selected{% endif %} data-i18n="theme_dark">Темная (Серьезная)</option>
+                        <option value="midnight" {% if user.theme == 'midnight' %}selected{% endif %} data-i18n="theme_midnight">Midnight (Тотальный черный)</option>
+                        <option value="light" {% if user.theme == 'light' %}selected{% endif %} data-i18n="theme_light">Светлая (Чистая)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="avatar_label">Изменить аватар</label>
+                    <div class="custom-file">
+                        <input type="file" name="avatar_file" class="custom-file-input" id="avatarFile" accept="image/*">
+                        <label class="custom-file-label glass-input" for="avatarFile" data-i18n="back">Выберите фото...</label>
+                    </div>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label data-i18n="video_label">Видео в профиле (MP4/WebM)</label>
+                    <div class="custom-file">
+                        <input type="file" name="profile_video_file" class="custom-file-input" id="videoFile" accept="video/*">
+                        <label class="custom-file-label glass-input" for="videoFile" data-i18n="back">Выберите видео...</label>
+                    </div>
+                </div>
+
+                {% if user.profile_video %}
+                <div class="mt-2 text-left">
+                    <small class="text-white-50">У вас уже загружено видео профиля</small>
+                </div>
+                {% endif %}
+
+                <button type="submit" class="btn btn-glass btn-block mt-4">
+                    <i class="fas fa-save mr-2"></i> <span data-i18n="save_changes">Сохранить изменения</span>
+                </button>
+            </form>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='i18n.js') }}"></script>
+
+    <script>
+        // Показ имени выбранного файла
+        document.querySelectorAll('.custom-file-input').forEach(input => {
+            input.addEventListener('change', function(e) {
+                const fileName = e.target.files[0] ? e.target.files[0].name : "Выберите файл...";
+                const label = e.target.nextElementSibling;
+                label.innerText = fileName;
+            });
+        });
+
+        // Переключатель тем
+        const themeCycleBtn = document.getElementById('theme-cycle');
+        const themeSelect = document.querySelector('select[name="theme"]');
+        const themes = ['dark', 'midnight', 'light'];
+
+        themeCycleBtn.onclick = () => {
+            let currentTheme = document.body.getAttribute('data-theme') || 'dark';
+            let nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+            let nextTheme = themes[nextIndex];
+            
+            document.body.setAttribute('data-theme', nextTheme);
+            if(themeSelect) themeSelect.value = nextTheme;
+
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: nextTheme })
+            });
+        };
+    </script>
+</body>
+</html>
