@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'super-secret-key-nebula' # Секретный ключ для сессий
+app.secret_key = 'super-secret-key-nebula'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 # Лимит 100МБ для видео PS: позже увеличу
 UPLOAD_FOLDER = 'static/avatars'
 CHAT_IMAGES_FOLDER = 'static/chat_images'
@@ -30,7 +30,6 @@ def get_db_connection():
 
 def init_db():
     conn = get_db_connection()
-    # Убеждаемся, что колонка text может быть NULL или исправляем миграцию
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +59,6 @@ def init_db():
         )
     ''')
     
-    # Миграция
     try:
         conn.execute("ALTER TABLE users ADD COLUMN theme TEXT DEFAULT 'dark'")
     except: pass
@@ -77,7 +75,6 @@ def init_db():
         conn.execute("ALTER TABLE users ADD COLUMN typing_with INTEGER")
     except: pass
 
-    # Миграции для сообщений
     try:
         conn.execute('ALTER TABLE messages ADD COLUMN msg_type TEXT DEFAULT "text"')
     except: pass
@@ -92,7 +89,6 @@ def init_db():
         conn.execute('ALTER TABLE messages ADD COLUMN deleted_by_receiver INTEGER DEFAULT 0')
     except: pass
     
-    # Миграция: добавляем колонки если их нет
     try:
         conn.execute('ALTER TABLE users ADD COLUMN last_typing TEXT')
         conn.execute('ALTER TABLE users ADD COLUMN typing_with INTEGER')
@@ -121,18 +117,14 @@ def index():
     total_unread = conn.execute('SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0', (my_id,)).fetchone()[0]
     
     if search_query:
-        # Поиск новых пользователей
-        # ...
-
-        # Поиск новых пользователей
+    
         users = conn.execute(
             'SELECT id, username, avatar FROM users WHERE id != ? AND username LIKE ?', 
             (my_id, f'%{search_query}%')
         ).fetchall()
         is_search = True
     else:
-        # Получаем список пользователей, с которыми уже есть переписка
-        # Сортируем по времени последнего сообщения
+        
         users = conn.execute('''
             SELECT DISTINCT u.id, u.username, u.avatar, 
             (SELECT msg_type FROM messages 
@@ -260,7 +252,6 @@ def set_typing():
     recipient_id = data.get('recipient_id')
     
     conn = get_db_connection()
-    # Используем строку для времени, чтобы избежать DeprecationWarning и проблем с типами
     now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
     conn.execute('UPDATE users SET last_typing = ?, typing_with = ? WHERE id = ?', 
                  (now_str, recipient_id, session['user_id']))
@@ -295,7 +286,6 @@ def send_message():
     receiver_id = request.form.get('receiver_id')
     text = request.form.get('text', '')
     
-    # Если данные пришли в JSON (старый метод)
     if not receiver_id and request.is_json:
         data = request.json
         receiver_id = data.get('receiver_id')
@@ -306,7 +296,6 @@ def send_message():
 
     conn = get_db_connection()
     
-    # Проверяем, пришел ли файл
     if 'file' in request.files:
         file = request.files['file']
         if file and file.filename != '':
@@ -325,7 +314,6 @@ def send_message():
             conn.close()
             return jsonify({'status': 'sent', 'type': msg_type})
 
-    # Если это просто текст
     if text:
         conn.execute('INSERT INTO messages (sender_id, receiver_id, text, msg_type) VALUES (?, ?, ?, ?)',
                      (sender_id, receiver_id, text, 'text'))
@@ -412,8 +400,6 @@ def delete_chat(other_id):
     
     my_id = session['user_id']
     conn = get_db_connection()
-    # Удаляем сообщения только для текущего пользователя (или полностью из таблицы для обоих)
-    # Обычно в простых чатах удаление чата удаляет сообщения из базы.
     conn.execute('DELETE FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)', 
                  (my_id, other_id, other_id, my_id))
     conn.commit()
@@ -464,3 +450,4 @@ def delete_message():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
